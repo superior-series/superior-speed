@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Superior Speed</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=1">
+  <script src="js/theme.js?v=1"></script>
+  <script src="js/auth.js?v=1"></script>
+</head>
+<body>
+
+<!-- ===== Auth Screen ===== -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">Superior Speed</div>
+    <div class="auth-tagline">Webファイル軽量化コンバーター</div>
+    <p class="auth-message">ご利用にはログインが必要です</p>
+    <p class="auth-notice">ファイルはブラウザ内で処理され、サーバーには送信されません。</p>
+    <div class="form-field">
+      <label class="field-label" for="auth-email">メールアドレス</label>
+      <input type="email" id="auth-email" placeholder="your@email.com" autocomplete="email">
+    </div>
+    <div class="form-field">
+      <label class="field-label" for="auth-password">パスワード</label>
+      <input type="password" id="auth-password" placeholder="パスワード" autocomplete="current-password">
+    </div>
+    <button id="auth-login-btn" class="btn btn--primary auth-btn">ログイン</button>
+    <div id="auth-error" class="auth-error" aria-live="polite"></div>
+  </div>
+</div>
+
+<div id="app-content">
+
+<!-- ===== Header ===== -->
+<header id="site-header">
+  <div class="header-inner">
+    <div class="header-brand">
+      <span class="header-title">Superior Speed</span>
+      <span class="header-sub">Webファイル軽量化コンバーター</span>
+    </div>
+    <div class="header-actions">
+      <button id="theme-toggle" class="icon-btn" title="テーマ切替">🌙</button>
+    </div>
+  </div>
+</header>
+
+<!-- ===== Main ===== -->
+<main class="container">
+
+  <!-- Tabs -->
+  <div class="tab-group" role="tablist">
+    <button class="tab-btn active" id="tab-image" data-tab="image" role="tab" aria-selected="true">画像 → WebP</button>
+    <button class="tab-btn" id="tab-video" role="tab" aria-selected="false" disabled title="Phase 2で追加予定">動画 → WebM</button>
+    <button class="tab-btn" id="tab-audio" role="tab" aria-selected="false" disabled title="Phase 2で追加予定">音声 → Opus</button>
+  </div>
+
+  <!-- Image tab panel -->
+  <section class="tab-panel active" id="panel-image" data-panel="image">
+    <div class="card">
+      <h2 class="card-title">画像をWebPに変換</h2>
+
+      <div id="dropzone" class="dropzone" tabindex="0">
+        <div class="dropzone-icon">📁</div>
+        <div class="dropzone-text">クリックしてファイルを選択、またはドラッグ&ドロップ</div>
+        <div class="dropzone-hint">複数ファイル対応 / JPG・PNGなど</div>
+      </div>
+      <input type="file" id="file-input" accept="image/*" multiple hidden>
+
+      <div id="file-list" class="file-list"></div>
+
+      <div class="settings-grid">
+        <label class="checkbox-row">
+          <input type="checkbox" id="auto-format-checkbox" checked>
+          <span>Web用に自動整形（半角英数字・ハイフンのみに整形）</span>
+        </label>
+
+        <div class="form-field">
+          <label class="field-label" for="quality-slider">画質（品質）</label>
+          <div class="slider-row">
+            <input type="range" id="quality-slider" min="50" max="100" value="80">
+            <span class="slider-value" id="quality-value">80</span>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label class="checkbox-row">
+            <input type="checkbox" id="resize-checkbox" checked>
+            <span>最大幅を制限する</span>
+          </label>
+          <div class="resize-row">
+            <input type="number" id="resize-width" value="1920" min="1" step="1">
+            <span class="field-label">px（アスペクト比は維持）</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions" style="margin-top: 1.5rem;">
+        <button id="convert-btn" class="btn btn--primary" disabled>変換する</button>
+      </div>
+
+      <div id="progress-wrap" class="progress-wrap">
+        <div class="progress-bar-track">
+          <div id="progress-bar-fill" class="progress-bar-fill"></div>
+        </div>
+        <div id="progress-label" class="progress-label"></div>
+      </div>
+
+      <div id="status-msg" class="status-msg" aria-live="polite"></div>
+
+      <div class="results-section" id="results-section" style="display:none;">
+        <h2 class="card-title">変換結果</h2>
+        <div id="results-list"></div>
+        <div class="results-actions">
+          <button id="download-all-btn" class="btn btn--primary" style="display:none;">すべてダウンロード</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===== Footer ===== -->
+<footer id="site-footer">
+  <div class="footer-inner">
+    <a href="about.html" class="footer-about-link">ご利用について</a>
+    <div class="footer-notice">ファイルはブラウザ内で処理され、サーバーには送信されません。</div>
+  </div>
+</footer>
+
+</div><!-- #app-content -->
+
+<script src="js/image-converter.js?v=1"></script>
+<script src="js/app.js?v=1"></script>
+</body>
+</html>
