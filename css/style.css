@@ -329,7 +329,7 @@ input::placeholder { color: var(--text-faint); }
   display: none;
 }
 
-.status-msg.visible { display: block; }
+.status-msg.visible { display: block; white-space: pre-line; }
 .status-msg.success {
   color: var(--success-text);
   background: rgba(74, 222, 128, 0.07);
@@ -341,6 +341,16 @@ input::placeholder { color: var(--text-faint); }
   border: 1px solid rgba(248, 113, 113, 0.3);
 }
 
+.status-msg.warn {
+  color: var(--text-secondary);
+  background: rgba(251, 191, 36, 0.06);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+html.light-mode .status-msg.warn {
+  background: rgba(180, 83, 9, 0.05);
+  border-color: rgba(180, 83, 9, 0.22);
+}
 html.light-mode .status-msg.success {
   background: rgba(21, 128, 61, 0.07);
   border-color: rgba(21, 128, 61, 0.3);
@@ -620,6 +630,22 @@ html.light-mode .status-msg.error {
   max-width: 140px;
 }
 
+.resize-row input[type="number"][aria-invalid="true"] {
+  border-color: var(--error-text);
+}
+
+.field-error {
+  font-size: 0.8rem;
+  color: var(--error-text);
+}
+
+.field-error:empty { display: none; }
+
+.settings-note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
 /* =====================================================
    Progress
    ===================================================== */
@@ -696,6 +722,20 @@ html.light-mode .status-msg.error {
 
 .result-reduction--increase {
   color: var(--error-text);
+}
+
+.result-error {
+  flex-basis: 100%;
+  font-size: 0.8rem;
+  color: var(--error-text);
+  line-height: 1.5;
+}
+
+.result-note {
+  flex-basis: 100%;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.5;
 }
 
 .result-download {

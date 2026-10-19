@@ -31,6 +31,7 @@
     var qualityValueEl   = document.getElementById('quality-value');
     var resizeCheckbox   = document.getElementById('resize-checkbox');
     var resizeWidthInput = document.getElementById('resize-width');
+    var resizeErrorEl    = document.getElementById('resize-error');
     var convertBtn       = document.getElementById('convert-btn');
     var progressWrap     = document.getElementById('progress-wrap');
     var progressBarFill  = document.getElementById('progress-bar-fill');
@@ -40,9 +41,14 @@
     var resultsList       = document.getElementById('results-list');
     var downloadAllBtn   = document.getElementById('download-all-btn');
 
+    var DOWNLOAD_ALL_LABEL = downloadAllBtn.textContent;
+    var MAX_RESIZE = 10000;
+
     var selectedFiles = []; // { id, file, renameValue }
     var nextId = 1;
     var isConverting = false;
+    var isZipping = false;
+    var resultUrls = []; // object URLs of the current results, revoked before the next run
 
     // ----- Dropzone -----
     dropzone.addEventListener('click', function () { fileInput.click(); });
@@ -69,13 +75,52 @@
       fileInput.value = '';
     });
 
+    var REJECT_REASONS = {
+      heic:  'HEIC形式はブラウザで変換できません。iPhoneの設定で『互換性優先』にするか、JPG/PNGに変換してからお試しください',
+      svg:   'SVGはそのままWebで使える軽量な形式なので、変換は不要です',
+      other: '画像ファイル以外は追加できません',
+    };
+
+    function getRejectReason(file) {
+      var type = (file.type || '').toLowerCase();
+      var name = file.name.toLowerCase();
+      if (type === 'image/heic' || type === 'image/heif' || /\.(heic|heif)$/.test(name)) return 'heic';
+      if (type === 'image/svg+xml') return 'svg';
+      if (type.indexOf('image/') !== 0) return 'other';
+      return null;
+    }
+
     function addFiles(fileList) {
+      var rejected = { heic: 0, svg: 0, other: 0 };
+      var hasRejected = false;
+      var hasGif = false;
+
       Array.prototype.forEach.call(fileList, function (file) {
-        if (file.type.indexOf('image/') !== 0) return;
+        var reason = getRejectReason(file);
+        if (reason) {
+          rejected[reason]++;
+          hasRejected = true;
+          return;
+        }
+        if (file.type === 'image/gif') hasGif = true;
         selectedFiles.push({ id: nextId++, file: file, renameValue: '' });
       });
       renderFileList();
       updateConvertButtonState();
+
+      var lines = [];
+      Object.keys(rejected).forEach(function (reason) {
+        if (rejected[reason] > 0) {
+          lines.push(rejected[reason] + '件を除外しました（' + REJECT_REASONS[reason] + '）');
+        }
+      });
+      if (hasGif) lines.push('GIFは1コマ目だけが静止画のWebPとして変換されます');
+
+      if (lines.length > 0) {
+        showStatus(lines.join('\n'), hasRejected ? 'error' : 'warn');
+      } else {
+        hideStatus();
+      }
     }
 
     function removeFile(id) {
@@ -139,7 +184,7 @@
     }
 
     function updateConvertButtonState() {
-      convertBtn.disabled = selectedFiles.length === 0 || isConverting;
+      convertBtn.disabled = selectedFiles.length === 0 || isConverting || isZipping;
     }
 
     // ----- Settings -----
@@ -149,13 +194,51 @@
 
     resizeCheckbox.addEventListener('change', function () {
       resizeWidthInput.disabled = !resizeCheckbox.checked;
+      if (!resizeCheckbox.checked) setResizeError('');
     });
+
+    resizeWidthInput.addEventListener('input', function () {
+      // Only re-check once an error is shown, so typing isn't nagged mid-entry
+      if (resizeErrorEl.textContent) validateResizeValue();
+    });
+
+    // Returns the max size as an integer, or null (with an error shown) if invalid
+    function validateResizeValue() {
+      var raw = resizeWidthInput.value.trim();
+      var value = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
+      if (!(value >= 1)) {
+        setResizeError('1以上の整数を入力してください');
+        return null;
+      }
+      if (value > MAX_RESIZE) {
+        setResizeError(MAX_RESIZE + '以下の整数を入力してください');
+        return null;
+      }
+      setResizeError('');
+      return value;
+    }
+
+    function setResizeError(msg) {
+      resizeErrorEl.textContent = msg;
+      if (msg) resizeWidthInput.setAttribute('aria-invalid', 'true');
+      else resizeWidthInput.removeAttribute('aria-invalid');
+    }
 
     // ----- Convert -----
     convertBtn.addEventListener('click', convertAll);
 
     async function convertAll() {
-      if (selectedFiles.length === 0 || isConverting) return;
+      if (selectedFiles.length === 0 || isConverting || isZipping) return;
+
+      var resizeEnabled = resizeCheckbox.checked;
+      var maxSize = null;
+      if (resizeEnabled) {
+        maxSize = validateResizeValue();
+        if (maxSize === null) {
+          resizeWidthInput.focus();
+          return;
+        }
+      }
 
       isConverting = true;
       updateConvertButtonState();
@@ -163,12 +246,11 @@
       resultsSection.style.display = 'none';
       resultsList.innerHTML = '';
       downloadAllBtn.style.display = 'none';
+      revokeResultUrls();
       progressWrap.classList.add('visible');
       progressBarFill.style.width = '0%';
 
       var quality = parseInt(qualitySlider.value, 10);
-      var resizeEnabled = resizeCheckbox.checked;
-      var maxWidth = parseInt(resizeWidthInput.value, 10) || null;
       var autoFormat = autoFormatCheckbox.checked;
 
       var usedNames = new Set();
@@ -183,7 +265,7 @@
           var blob = await ImageConverter.convertToWebP(entry.file, {
             quality: quality,
             resizeEnabled: resizeEnabled,
-            maxWidth: maxWidth,
+            maxSize: maxSize,
           });
 
           var rawBase = entry.renameValue.trim() || stripExtension(entry.file.name);
@@ -192,6 +274,7 @@
           var filename = finalBase + '.webp';
 
           var url = URL.createObjectURL(blob);
+          resultUrls.push(url);
           var originalSize = entry.file.size;
           var newSize = blob.size;
           var reduction = originalSize > 0 ? Math.round((1 - newSize / originalSize) * 100) : 0;
@@ -199,6 +282,7 @@
           results.push({
             filename: filename,
             url: url,
+            blob: blob,
             originalSize: originalSize,
             newSize: newSize,
             reduction: reduction,
@@ -236,8 +320,8 @@
 
         if (r.error) {
           var errEl = document.createElement('div');
-          errEl.className = 'result-sizes';
-          errEl.textContent = 'エラー: ' + r.error;
+          errEl.className = 'result-error';
+          errEl.textContent = r.error;
           item.appendChild(errEl);
         } else {
           successCount++;
@@ -263,6 +347,13 @@
           downloadBtn.download = r.filename;
           downloadBtn.textContent = '↓ ダウンロード';
           item.appendChild(downloadBtn);
+
+          if (r.newSize > r.originalSize) {
+            var noteEl = document.createElement('div');
+            noteEl.className = 'result-note';
+            noteEl.textContent = '元のファイルの方が小さいため、元のファイルをそのまま使うのがおすすめです';
+            item.appendChild(noteEl);
+          }
         }
 
         resultsList.appendChild(item);
@@ -271,23 +362,77 @@
       resultsSection.style.display = 'block';
       downloadAllBtn.style.display = successCount > 0 ? 'inline-flex' : 'none';
 
-      downloadAllBtn.onclick = function () {
-        results.forEach(function (r, idx) {
-          if (r.error) return;
-          setTimeout(function () {
-            var a = document.createElement('a');
-            a.href = r.url;
-            a.download = r.filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-          }, idx * 150);
-        });
-      };
+      var successes = results.filter(function (r) { return !r.error; });
+      downloadAllBtn.onclick = function () { downloadAll(successes); };
+    }
+
+    async function downloadAll(successes) {
+      if (isZipping || successes.length === 0) return;
+
+      // JSZip comes from a CDN; if it failed to load (offline etc.), download one by one
+      if (typeof JSZip === 'undefined') {
+        downloadSequentially(successes);
+        return;
+      }
+
+      isZipping = true;
+      downloadAllBtn.disabled = true;
+      downloadAllBtn.textContent = 'ZIPを作成中…';
+      updateConvertButtonState();
+
+      try {
+        var zip = new JSZip();
+        successes.forEach(function (r) { zip.file(r.filename, r.blob); });
+        // WebP is already compressed, so store without recompressing
+        var zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+        var zipUrl = URL.createObjectURL(zipBlob);
+        resultUrls.push(zipUrl);
+        triggerDownload(zipUrl, 'superior-speed-' + formatTimestamp(new Date()) + '.zip');
+      } catch (err) {
+        showStatus('ZIPの作成に失敗したため、1件ずつダウンロードします', 'error');
+        downloadSequentially(successes);
+      } finally {
+        isZipping = false;
+        downloadAllBtn.disabled = false;
+        downloadAllBtn.textContent = DOWNLOAD_ALL_LABEL;
+        updateConvertButtonState();
+      }
+    }
+
+    function downloadSequentially(successes) {
+      successes.forEach(function (r, idx) {
+        setTimeout(function () { triggerDownload(r.url, r.filename); }, idx * 150);
+      });
+    }
+
+    function triggerDownload(url, filename) {
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function revokeResultUrls() {
+      resultUrls.forEach(function (url) { URL.revokeObjectURL(url); });
+      resultUrls = [];
+    }
+
+    function formatTimestamp(d) {
+      function pad(n) { return (n < 10 ? '0' : '') + n; }
+      return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' +
+        pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+    }
+
+    function showStatus(msg, type) {
+      statusMsg.classList.remove('success', 'error', 'warn');
+      statusMsg.classList.add('visible', type);
+      statusMsg.textContent = msg;
     }
 
     function hideStatus() {
-      statusMsg.classList.remove('visible', 'success', 'error');
+      statusMsg.classList.remove('visible', 'success', 'error', 'warn');
       statusMsg.textContent = '';
     }
 

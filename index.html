@@ -4,12 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Superior Speed</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=1">
-  <script src="js/theme.js?v=1"></script>
-  <script src="js/auth.js?v=1"></script>
+  <link rel="stylesheet" href="css/style.css?v=2">
+  <script src="js/theme.js?v=2"></script>
+  <script src="js/auth.js?v=2"></script>
 </head>
 <body>
 
@@ -89,13 +90,16 @@
         <div class="form-field">
           <label class="checkbox-row">
             <input type="checkbox" id="resize-checkbox" checked>
-            <span>最大幅を制限する</span>
+            <span>長辺の最大サイズを制限する</span>
           </label>
           <div class="resize-row">
-            <input type="number" id="resize-width" value="1920" min="1" step="1">
-            <span class="field-label">px（アスペクト比は維持）</span>
+            <input type="number" id="resize-width" value="1920" min="1" max="10000" step="1" inputmode="numeric" aria-describedby="resize-error">
+            <span class="field-label">px（縦・横の長い方を基準に縮小、アスペクト比は維持）</span>
           </div>
+          <div id="resize-error" class="field-error" aria-live="polite"></div>
         </div>
+
+        <p class="settings-note">位置情報などのメタデータは削除されます</p>
       </div>
 
       <div class="form-actions" style="margin-top: 1.5rem;">
@@ -115,7 +119,7 @@
         <h2 class="card-title">変換結果</h2>
         <div id="results-list"></div>
         <div class="results-actions">
-          <button id="download-all-btn" class="btn btn--primary" style="display:none;">すべてダウンロード</button>
+          <button id="download-all-btn" class="btn btn--primary" style="display:none;">すべてZIPでダウンロード</button>
         </div>
       </div>
     </div>
@@ -133,7 +137,8 @@
 
 </div><!-- #app-content -->
 
-<script src="js/image-converter.js?v=1"></script>
-<script src="js/app.js?v=1"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="js/image-converter.js?v=2"></script>
+<script src="js/app.js?v=2"></script>
 </body>
 </html>
