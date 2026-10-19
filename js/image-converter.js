@@ -4,12 +4,27 @@ var ImageConverter = (function () {
 
   var LOAD_ERROR_MESSAGE = 'この画像は読み込めませんでした。ファイルが壊れているか、ブラウザが対応していない形式です';
 
-  function sanitizeForWeb(name) {
+  // Returns '' when nothing usable remains (e.g. Japanese-only input)
+  function sanitizeBase(name) {
     var s = name.replace(/[^a-zA-Z0-9\-_]/g, '-');
     s = s.replace(/-+/g, '-');
     s = s.replace(/^-+|-+$/g, '');
-    s = s.toLowerCase();
-    return s || 'image';
+    return s.toLowerCase();
+  }
+
+  function sanitizeForWeb(name) {
+    return sanitizeBase(name) || 'image';
+  }
+
+  // Safari and all iOS browsers silently fall back to PNG
+  function canEncodeWebP() {
+    try {
+      var canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 1;
+      return canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+    } catch (_) {
+      return false;
+    }
   }
 
   function dedupeName(baseName, usedNames) {
@@ -48,6 +63,7 @@ var ImageConverter = (function () {
     var loaded = await loadImage(file);
     var img = loaded.img;
     var url = loaded.url;
+    var canvas = null;
 
     try {
       var w = img.naturalWidth;
@@ -62,7 +78,7 @@ var ImageConverter = (function () {
         h = Math.max(1, Math.round(h * ratio));
       }
 
-      var canvas = document.createElement('canvas');
+      canvas = document.createElement('canvas');
       canvas.width = w;
       canvas.height = h;
       var ctx = canvas.getContext('2d');
@@ -80,11 +96,16 @@ var ImageConverter = (function () {
       return blob;
     } finally {
       URL.revokeObjectURL(url);
+      // Shrink the backing store right away so large batches don't pile up canvas memory
+      if (canvas) canvas.width = canvas.height = 0;
+      img.src = '';
     }
   }
 
   return {
+    sanitizeBase: sanitizeBase,
     sanitizeForWeb: sanitizeForWeb,
+    canEncodeWebP: canEncodeWebP,
     dedupeName: dedupeName,
     convertToWebP: convertToWebP,
   };

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=2">
+  <link rel="stylesheet" href="css/style.css?v=3">
   <script src="js/theme.js?v=2"></script>
   <script src="js/auth.js?v=2"></script>
 </head>
@@ -52,6 +52,10 @@
 <!-- ===== Main ===== -->
 <main class="container">
 
+  <div id="webp-unsupported-banner" class="notice-banner" role="alert" hidden>
+    このブラウザはWebPへの書き出しに対応していません。パソコン版の Chrome / Edge / Firefox でご利用ください
+  </div>
+
   <!-- Tabs -->
   <div class="tab-group" role="tablist">
     <button class="tab-btn active" id="tab-image" data-tab="image" role="tab" aria-selected="true">画像 → WebP</button>
@@ -66,17 +70,71 @@
 
       <div id="dropzone" class="dropzone" tabindex="0">
         <div class="dropzone-icon">📁</div>
-        <div class="dropzone-text">クリックしてファイルを選択、またはドラッグ&ドロップ</div>
+        <div class="dropzone-text">クリックしてファイルを選択、またはファイル・フォルダをドラッグ&ドロップ</div>
         <div class="dropzone-hint">複数ファイル対応 / JPG・PNGなど</div>
       </div>
       <input type="file" id="file-input" accept="image/*" multiple hidden>
+      <input type="file" id="folder-input" webkitdirectory multiple hidden>
 
-      <div id="file-list" class="file-list"></div>
+      <div class="picker-row lockable">
+        <button type="button" id="folder-btn" class="btn btn--ghost btn--sm">📂 フォルダを選択</button>
+        <p class="settings-note">推奨ブラウザ：パソコン版の Chrome / Edge / Firefox（Safari・iPhone・iPad は WebP の書き出しに非対応です）</p>
+      </div>
 
-      <div class="settings-grid">
+      <!-- Naming -->
+      <div class="naming-section lockable">
+        <div class="field-label" id="rename-mode-label">ファイル名の付け方</div>
+        <div class="segmented" role="radiogroup" aria-labelledby="rename-mode-label">
+          <label class="segmented-option">
+            <input type="radio" name="rename-mode" value="individual" checked>
+            <span>個別に指定</span>
+          </label>
+          <label class="segmented-option">
+            <input type="radio" name="rename-mode" value="sequential">
+            <span>共通名＋連番</span>
+          </label>
+        </div>
+
+        <div id="seq-settings" class="seq-settings" hidden>
+          <div class="form-field">
+            <label class="field-label" for="seq-base">共通名</label>
+            <input type="text" id="seq-base" placeholder="product" aria-describedby="seq-base-error">
+            <div id="seq-base-error" class="field-error" aria-live="polite"></div>
+          </div>
+          <div class="form-field">
+            <label class="field-label" for="seq-start">開始番号</label>
+            <input type="number" id="seq-start" value="1" min="0" step="1" inputmode="numeric" aria-describedby="seq-start-error">
+            <div id="seq-start-error" class="field-error" aria-live="polite"></div>
+          </div>
+          <div class="form-field">
+            <label class="field-label" for="seq-digits">桁数</label>
+            <select id="seq-digits">
+              <option value="auto" selected>自動</option>
+              <option value="2">2桁</option>
+              <option value="3">3桁</option>
+              <option value="4">4桁</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="field-label" for="seq-order">並び順</label>
+            <select id="seq-order">
+              <option value="name" selected>ファイル名順</option>
+              <option value="added">追加した順</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div id="file-list-header" class="file-list-header lockable" hidden>
+        <span id="file-count" class="file-count"></span>
+        <button type="button" id="clear-all-btn" class="btn btn--ghost btn--sm">すべて削除</button>
+      </div>
+      <div id="file-list" class="file-list lockable"></div>
+
+      <div class="settings-grid lockable">
         <label class="checkbox-row">
           <input type="checkbox" id="auto-format-checkbox" checked>
-          <span>Web用に自動整形（半角英数字・ハイフンのみに整形）</span>
+          <span>ファイル名を半角英数字に整える</span>
         </label>
 
         <div class="form-field">
@@ -102,6 +160,15 @@
         <p class="settings-note">位置情報などのメタデータは削除されます</p>
       </div>
 
+      <div id="seq-preview" class="seq-preview" hidden>
+        <div class="field-label">名前の対応を確認</div>
+        <ol id="seq-preview-list" class="seq-preview-list"></ol>
+        <div class="seq-preview-footer">
+          <span class="settings-note">読み込めない画像があった場合は、その画像を除いて番号を詰めます</span>
+          <button type="button" id="seq-preview-toggle" class="btn btn--ghost btn--sm" hidden>すべて表示</button>
+        </div>
+      </div>
+
       <div class="form-actions" style="margin-top: 1.5rem;">
         <button id="convert-btn" class="btn btn--primary" disabled>変換する</button>
       </div>
@@ -117,6 +184,7 @@
 
       <div class="results-section" id="results-section" style="display:none;">
         <h2 class="card-title">変換結果</h2>
+        <div id="results-summary" class="results-summary"></div>
         <div id="results-list"></div>
         <div class="results-actions">
           <button id="download-all-btn" class="btn btn--primary" style="display:none;">すべてZIPでダウンロード</button>
@@ -138,7 +206,7 @@
 </div><!-- #app-content -->
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="js/image-converter.js?v=2"></script>
-<script src="js/app.js?v=2"></script>
+<script src="js/image-converter.js?v=3"></script>
+<script src="js/app.js?v=3"></script>
 </body>
 </html>
